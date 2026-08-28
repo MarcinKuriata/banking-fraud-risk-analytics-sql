@@ -1,0 +1,34 @@
+# Raw & Processed Data Files (block large files)
+data/
+*.csv
+*.tsv
+*.xlsx
+*.xls
+*.parquet
+*.zip
+*.tar.gz
+
+# Python & Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+ENV/
+
+# Jupyter Notebooks checkpoints
+.ipynb_checkpoints*/
+
+# IDE & System Files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.bak
+*.tmp
+
+# Secrets & Environment variables
+.env
+credentials.json
+service_account.json
