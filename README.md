@@ -34,7 +34,7 @@ An end-to-end financial data analytics project simulating a core banking transac
 * **Data Modeling:** Star Schema (Fact: Transactions | Dims: Users, Cards, Merchants)
 * **Key SQL Techniques:**
   - Datetime reconstruction: `DATETIME()`, `SPLIT()`, `CAST()`
-  - Data hygiene & null handling: `IFNULL()`, `COALESCE()`
+  - Data hygiene & null handling: `IFNULL()`
   - Metric flag conversion: `IF(Is_Fraud_, 1, 0)`
   - Window Functions (In Progress): `LAG()`, `LEAD()`, `SUM() OVER ()`, `AVG() OVER ()`
 
@@ -60,7 +60,7 @@ banking-fraud-risk-analytics-sql/
 ## Analytical Roadmap & Progress
 
 ### Phase 1: Data Engineering & Staging Layer (`stg_transactions`) [DONE]
-* Reconstructed standardized ISO-8601 timestamps (`transaction_datetime`) by parsing string time formats (`HH:MM`) combined with year, month, and day integers.
+* Reconstructed standardized timestamps (`transaction_datetime`) by parsing string time formats (`HH:MM`) combined with year, month, and day integers.
 * Cleaned error states by transforming `NULL` fields into explicit `'None'` categories for reliable aggregation and filtering.
 * Normalized boolean fraud indicators into binary integers (`1`/`0`) to support direct calculations of `SUM(is_fraud)` and transaction fraud rates (`AVG(is_fraud)`).
 
