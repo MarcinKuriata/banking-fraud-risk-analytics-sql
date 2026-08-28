@@ -27,12 +27,12 @@ SELECT
   Amount AS amount, 
 
   -- Transaction context 
-  'Use Chip' AS transaction_method, 
-  'Merchant Name' AS merchant_name, 
-  'Merchant City' AS merchant_city,
-  'Merchant State' AS merchant_state, 
-  'Zip' AS zip_code, 
-  'MCC' AS merchant_category_code, 
+  `Use Chip` AS transaction_method, 
+  `Merchant Name` AS merchant_name, 
+  `Merchant City` AS merchant_city,
+  `Merchant State` AS merchant_state, 
+  `Zip` AS zip_code, 
+  `MCC` AS merchant_category_code, 
 
   -- Null to 'None' change 
   IFNULL(Errors_, 'None') AS error_reason,
