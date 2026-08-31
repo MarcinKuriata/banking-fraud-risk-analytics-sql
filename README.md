@@ -64,7 +64,11 @@ banking-fraud-risk-analytics-sql/
 * Cleaned error states by transforming `NULL` fields into explicit `'None'` categories for reliable aggregation and filtering.
 * Normalized boolean fraud indicators into binary integers (`1`/`0`) to support direct calculations of `SUM(is_fraud)` and transaction fraud rates (`AVG(is_fraud)`).
 
-### Phase 2: Transaction Monitoring & Window Analytics [IN PROGRESS]
-* Velocity Checks: identifying transaction bursts (< 120s between consecutive operations on the same card).
-* Cumulative Spend: tracking running daily totals per user using partitioned window frames.
-* Baseline Profiling: rolling 30-day average spend to flag out-of-pattern spikes.
+### Phase 2: Transaction Monitoring & Window Analytics (`02_velocity_and_running_balances.sql`) [DONE]
+* Implemented `LAG()` over partitioned user/card windows to track consecutive transaction gaps (`time_diff_mins`).
+* Constructed a **Rapid-Fire Velocity** flag identifying high-risk bursts: interval $\le$ 2 minutes across distinct merchants with spend $\ge$ 100 USD.
+* Engineered a cumulative daily balance metric (`running_daily_spend`) using partitioned running sums (`ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`).
+
+### Phase 3: Outlier & Risk Threshold Rules [NEXT STEP]
+* Rolling 30-day customer spend baseline calculation.
+* Geographic anomaly flags (inter-state transaction velocity / impossible travel speed).
