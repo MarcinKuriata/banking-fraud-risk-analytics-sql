@@ -59,7 +59,8 @@ banking-fraud-risk-analytics-sql/
 
 ## Analytical Roadmap & Progress
 
-### Phase 1: Data Engineering & Staging Layer (`01_data_cleaning_and_staging.sql`) [DONE]
+### Phase 1: Data Engineering & Staging Layer 
+(`01_data_cleaning_and_staging.sql`) [DONE]
 * Reconstructed standardized ISO-8601 timestamps (`transaction_datetime`) by parsing string time formats (`HH:MM`) combined with year, month, and day integers.
 * Cleaned error states by transforming `NULL` fields into explicit `'None'` categories for reliable aggregation and filtering.
 * Normalized boolean fraud indicators into binary integers (`1`/`0`) to support direct calculations of `SUM(is_fraud)` and transaction fraud rates (`AVG(is_fraud)`).
@@ -69,10 +70,12 @@ banking-fraud-risk-analytics-sql/
 * Constructed a **Rapid-Fire Velocity** flag identifying high-risk bursts: interval $\le$ 2 minutes across distinct merchants with spend $\ge$ 100 USD.
 * Engineered a cumulative daily balance metric (`running_daily_spend`) using partitioned running sums (`ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`).
 
-### Phase 3: Outlier & Risk Threshold Rules (`03_fraud_risk_scoring_rules.sql`) [DONE]
+### Phase 3: Outlier & Risk Threshold Rules 
+(`03_fraud_risk_scoring_rules.sql`) [DONE]
 * **Spend Outlier Detection:** Calculated trailing 10-transaction rolling baseline spend (`ROWS BETWEEN 10 PRECEDING AND 1 PRECEDING`) to flag anomalous spend surges exceeding $3\times$ historical customer average.
 * **Impossible Travel Velocity:** Engineered geographic anomaly detection tracking multi-state physical transitions occurring under 60 minutes.
 
-### Phase 4: Customer Risk Profiling & Summary Table [NEXT STEP]
+### Phase 4: Customer Risk Profiling & Summary Table
+(`04_customer_segmentation_rfm.sql`) [NEXT STEP]
 * Consolidating transaction flags into customer-level risk aggregates.
 * Exporting clean analytical marts for Power BI dashboarding.
