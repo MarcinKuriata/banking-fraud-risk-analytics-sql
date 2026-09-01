@@ -59,7 +59,7 @@ banking-fraud-risk-analytics-sql/
 
 ## Analytical Roadmap & Progress
 
-### Phase 1: Data Engineering & Staging Layer (01_data_cleaning_and_staging.sql) [DONE]
+### Phase 1: Data Engineering & Staging Layer (`01_data_cleaning_and_staging.sql`) [DONE]
 * Reconstructed standardized ISO-8601 timestamps (`transaction_datetime`) by parsing string time formats (`HH:MM`) combined with year, month, and day integers.
 * Cleaned error states by transforming `NULL` fields into explicit `'None'` categories for reliable aggregation and filtering.
 * Normalized boolean fraud indicators into binary integers (`1`/`0`) to support direct calculations of `SUM(is_fraud)` and transaction fraud rates (`AVG(is_fraud)`).
