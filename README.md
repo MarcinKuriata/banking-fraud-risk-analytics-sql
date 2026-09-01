@@ -26,7 +26,9 @@ flowchart TD
 
 ## Implementation Steps & Results
 
-### Step 1: Data Cleaning and Staging (`01_data_cleaning_and_staging.sql`)
+### Step 1: Data Cleaning and Staging
+🔗 **Source SQL:** [`sql/01_data_cleaning_and_staging.sql`](sql/01_data_cleaning_and_staging.sql)
+
 * Combined integer columns (`Year`, `Month`, `Day`, `Time`) into a single `DATETIME` format (`transaction_datetime`).
 * Handled missing merchant locations by assigning `'None'` to explicitly distinguish online transactions from physical store purchases.
 * Normalized the fraud indicator (`is_fraud_numeric`) to binary `1`/`0` for simple aggregation.
@@ -34,20 +36,26 @@ flowchart TD
 
 ---
 
-### Step 2: Velocity Checks and Running Daily Spend (`02_velocity_and_running_balances.sql`)
+### Step 2: Velocity Checks and Running Daily Spend
+🔗 **Source SQL:** [`sql/02_velocity_and_running_balances.sql`](sql/02_velocity_and_running_balances.sql)
+
 * Used `LAG()` across card transactions to compute time differences between consecutive purchases (`time_diff_minutes`).
 * Flagged transaction bursts: consecutive purchases at different merchants within $\le 2$ minutes for amounts $\ge \$100$.
 * Built intra-day running totals of customer spending using `ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`.
 
 ---
 
-### Step 3: Spending Outliers & Impossible Travel (`03_fraud_risk_scoring_rules.sql`)
+### Step 3: Spending Outliers & Impossible Travel
+🔗 **Source SQL:** [`sql/03_fraud_risk_scoring_rules.sql`](sql/03_fraud_risk_scoring_rules.sql)
+
 * **Spend Outlier:** Calculated each customer's trailing 10-transaction average spend (`ROWS BETWEEN 10 PRECEDING AND 1 PRECEDING`) to flag purchases exceeding $3\times$ their typical baseline ($\ge \$100$).
 * **Impossible Travel:** Flagged consecutive in-person transactions across different US states within $< 60$ minutes.
 
 ---
 
-### Step 4: Multi-Factor Risk Scoring Mart (`04_fraud_risk_mart.sql`)
+### Step 4: Multi-Factor Risk Scoring Mart
+🔗 **Source SQL:** [`sql/04_fraud_risk_mart.sql`](sql/04_fraud_risk_mart.sql)
+
 Combined all individual rules into a centralized view with a **Risk Score (0–100 points)**:
 * Impossible Travel: **40 pts**
 * Spend Outlier: **35 pts**
@@ -82,7 +90,9 @@ ORDER BY avg_risk_score DESC;
 
 ---
 
-### Step 5: Customer Risk Profiling & Segmentation (`05_customer_risk_profile.sql`)
+### Step 5: Customer Risk Profiling & Segmentation
+🔗 **Source SQL:** [`sql/05_customer_risk_profile.sql`](sql/05_customer_risk_profile.sql)
+
 Aggregated transaction behavior to create a customer-level dimension table (`user_id`):
 * **CONFIRMED_VICTIM:** Accounts with at least 1 confirmed fraud transaction.
 * **HIGH_SUSPICION:** Accounts with $\ge 3$ HIGH-risk transactions.
@@ -113,21 +123,16 @@ ORDER BY total_frauds DESC;
 
 ---
 
-## Project Structure
+## Repository Structure
 
-```text
-banking-fraud-risk-analytics-sql/
-├── sql/
-│   ├── 01_data_cleaning_and_staging.sql
-│   ├── 02_velocity_and_running_balances.sql
-│   ├── 03_fraud_risk_scoring_rules.sql
-│   ├── 04_fraud_risk_mart.sql
-│   └── 05_customer_risk_profile.sql
-├── data/
-│   └── .gitkeep
-├── .gitignore
-└── README.md
-```
+* **`sql/`**
+  * `01_data_cleaning_and_staging.sql` – Raw data type conversions, timestamp parsing, and staging view creation.
+  * `02_velocity_and_running_balances.sql` – Time-delta calculations, rapid-fire velocity flags, and daily cumulative sums.
+  * `03_fraud_risk_scoring_rules.sql` – Trailing spend averages, outlier detection, and state travel hops.
+  * `04_fraud_risk_mart.sql` – Fact mart view with composite risk score and risk tier categorization.
+  * `05_customer_risk_profile.sql` – Customer dimension aggregation and behavioral risk segmentation.
+* **`data/`** – Directory placeholder for source data schemas and documentation.
+* **`README.md`** – Project documentation, analytical findings, and query outputs.
 
 ---
 
