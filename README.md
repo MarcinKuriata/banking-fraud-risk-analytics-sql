@@ -20,7 +20,7 @@ An end-to-end financial data analytics project simulating a core banking transac
 [Staging & Transformation] (stg_transactions: ISO-8601 parsing, type casting, flag normalization)
        |
        v
-[Risk & Velocity Analytics] (Window Functions, CTEs, spend thresholds)
+[Risk & Behavioral Analytics] (Window Functions, CTEs, spend thresholds, geo-velocity)
        |
        v
 [BI Layer & Reporting] (Power BI KPIs & Risk Dashboards)
@@ -34,9 +34,9 @@ An end-to-end financial data analytics project simulating a core banking transac
 * **Data Modeling:** Star Schema (Fact: Transactions | Dims: Users, Cards, Merchants)
 * **Key SQL Techniques:**
   - Datetime reconstruction: `DATETIME()`, `SPLIT()`, `CAST()`
-  - Data hygiene & null handling: `IFNULL()`
+  - Data hygiene & null handling: `IFNULL()`, `COALESCE()`
   - Metric flag conversion: `IF(Is_Fraud_, 1, 0)`
-  - Window Functions (In Progress): `LAG()`, `LEAD()`, `SUM() OVER ()`, `AVG() OVER ()`
+  - Window Functions: `LAG()`, `DATETIME_DIFF()`, `AVG() OVER (PARTITION BY ... ORDER BY ... ROWS BETWEEN 10 PRECEDING AND 1 PRECEDING)`
 
 ---
 
@@ -60,7 +60,7 @@ banking-fraud-risk-analytics-sql/
 ## Analytical Roadmap & Progress
 
 ### Phase 1: Data Engineering & Staging Layer (`stg_transactions`) [DONE]
-* Reconstructed standardized timestamps (`transaction_datetime`) by parsing string time formats (`HH:MM`) combined with year, month, and day integers.
+* Reconstructed standardized ISO-8601 timestamps (`transaction_datetime`) by parsing string time formats (`HH:MM`) combined with year, month, and day integers.
 * Cleaned error states by transforming `NULL` fields into explicit `'None'` categories for reliable aggregation and filtering.
 * Normalized boolean fraud indicators into binary integers (`1`/`0`) to support direct calculations of `SUM(is_fraud)` and transaction fraud rates (`AVG(is_fraud)`).
 
@@ -69,6 +69,10 @@ banking-fraud-risk-analytics-sql/
 * Constructed a **Rapid-Fire Velocity** flag identifying high-risk bursts: interval $\le$ 2 minutes across distinct merchants with spend $\ge$ 100 USD.
 * Engineered a cumulative daily balance metric (`running_daily_spend`) using partitioned running sums (`ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`).
 
-### Phase 3: Outlier & Risk Threshold Rules [NEXT STEP]
-* Rolling 30-day customer spend baseline calculation.
-* Geographic anomaly flags (inter-state transaction velocity / impossible travel speed).
+### Phase 3: Outlier & Risk Threshold Rules (`03_fraud_risk_scoring_rules.sql`) [DONE]
+* **Spend Outlier Detection:** Calculated trailing 10-transaction rolling baseline spend (`ROWS BETWEEN 10 PRECEDING AND 1 PRECEDING`) to flag anomalous spend surges exceeding $3\times$ historical customer average.
+* **Impossible Travel Velocity:** Engineered geographic anomaly detection tracking multi-state physical transitions occurring under 60 minutes.
+
+### Phase 4: Customer Risk Profiling & Summary Table [NEXT STEP]
+* Consolidating transaction flags into customer-level risk aggregates.
+* Exporting clean analytical marts for Power BI dashboarding.
