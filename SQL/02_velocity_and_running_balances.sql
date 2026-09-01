@@ -12,7 +12,7 @@ WITH lagged_transactions AS (
     transaction_date,
     merchant_name,
     amount,
-    is_fraud,
+    is_fraud_numeric,
 
     -- Retrieve preceding transaction timestamp for the same card
     LAG(transaction_datetime) OVER (
@@ -35,7 +35,7 @@ SELECT
   transaction_date,
   merchant_name,
   amount,
-  is_fraud,
+  is_fraud_numeric,
 
   -- 1. Elapsed time in minutes since the previous transaction
   DATETIME_DIFF(transaction_datetime, prev_transaction_datetime, MINUTE) AS time_diff_mins,
