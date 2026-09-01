@@ -1,80 +1,64 @@
-# Banking & Credit Card Fraud Risk Analytics (SQL & BigQuery)
+# Banking Transaction & Fraud Risk Analytics (SQL & BigQuery)
 
-## Executive Summary
-An end-to-end financial data analytics and risk monitoring pipeline built on **24.3 million credit card transactions** using **Google BigQuery**. The project follows a strict dimensional modeling and staging workflow (Raw $\rightarrow$ Staging $\rightarrow$ Risk Modeling $\rightarrow$ Analytical Data Marts) designed to detect transaction velocity bursts, geographic travel anomalies, and customer spend outliers.
+## Overview
+This project simulates a bank transaction monitoring and fraud detection workflow on a dataset of **24.3 million credit card transactions**. 
+
+The goal was to build an end-to-end data pipeline in **Google BigQuery**: cleaning raw inputs, engineering risk flags via window functions, scoring transaction anomalies, and segmenting customers by risk exposure.
 
 ---
 
-## Architecture & End-to-End Workflow
+## Architecture & Data Flow
 
-```text
-[Raw CSVs: 24.3M records] 
-       │
-       ▼
-[GCS & BigQuery RAW Layer] (raw_transactions, raw_cards, raw_users)
-       │
-       ▼ (Phase 1: 01_data_cleaning_and_staging.sql)
-[Staging Layer: stg_transactions]
-       │
-       ▼ (Phase 2: 02_velocity_and_running_balances.sql)
-[Velocity & Running Balances Analytics]
-       │
-       ▼ (Phase 3: 03_fraud_risk_scoring_rules.sql)
-[Multi-Factor Anomaly & Outlier Detection]
-       │
-       ▼ (Phase 4: 04_fraud_risk_mart.sql)
-[Analytical Fact Mart: v_fact_fraud_monitoring] (Risk Score 0-100 pts)
-       │
-       ▼ (Phase 5: 05_customer_risk_profile.sql)
-[Analytical Dimension Mart: v_dim_user_risk_profile] (Customer Segmentation)
+```mermaid
+flowchart TD
+    A[Raw CSV Data: 24.3M rows] --> B[(Google Cloud Storage)]
+    B --> C[(BigQuery RAW Tables)]
+    C --> D[01: Data Cleaning & Staging]
+    D --> E[02: Velocity & Daily Balances]
+    E --> F[03: Anomaly & Travel Rules]
+    F --> G[04: Fact Mart: v_fact_fraud_monitoring]
+    G --> H[05: Dimension Mart: v_dim_user_risk_profile]
+    G --> I[Power BI Dashboards]
+    H --> I
 ```
 
 ---
 
-## Step-by-Step Implementation & Empirical Findings
+## Implementation Steps & Results
 
-### Phase 1: Data Hygiene, Parsing & Staging (`01_data_cleaning_and_staging.sql`)
-* **Objective:** Clean raw ingested tables, handle messy e-commerce null values, and standardize date formats into query-optimized types.
-* **Key Operations:**
-  - Parsed integer time components (`Year`, `Month`, `Day`, `Time`) into ISO-8601 timestamps (`DATETIME`).
-  - Standardized empty merchant locations (`NULL` $\rightarrow$ `'None'`) to distinguish online e-commerce from physical in-store card swipes.
-  - Converted string flags (`Is_Fraud?`) into binary indicators (`1`/`0`) as `is_fraud_numeric` to enable arithmetic aggregations and fraud rate calculations.
-  - Cleaned currency strings (`$amount`) into numeric floats.
+### Step 1: Data Cleaning and Staging (`01_data_cleaning_and_staging.sql`)
+* Combined integer columns (`Year`, `Month`, `Day`, `Time`) into a single `DATETIME` format (`transaction_datetime`).
+* Handled missing merchant locations by assigning `'None'` to explicitly distinguish online transactions from physical store purchases.
+* Normalized the fraud indicator (`is_fraud_numeric`) to binary `1`/`0` for simple aggregation.
+* Converted currency strings into numeric types.
 
 ---
 
-### Phase 2: Transaction Velocity & Running Balances (`02_velocity_and_running_balances.sql`)
-* **Objective:** Detect rapid-fire transaction patterns and calculate intra-day cumulative spend exposure.
-* **Key Operations:**
-  - Implemented `LAG(transaction_datetime)` partitioned by `(user_id, card_id)` to calculate delta minutes (`time_diff_minutes`).
-  - Implemented `LAG(merchant_name)` to identify merchant transitions.
-  - Engineered **Rapid Velocity Flag:** consecutive transactions across distinct merchants within $\le 2$ minutes for amounts $\ge \$100$.
-  - Calculated cumulative daily spend using running balance window frames: `ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`.
+### Step 2: Velocity Checks and Running Daily Spend (`02_velocity_and_running_balances.sql`)
+* Used `LAG()` across card transactions to compute time differences between consecutive purchases (`time_diff_minutes`).
+* Flagged transaction bursts: consecutive purchases at different merchants within $\le 2$ minutes for amounts $\ge \$100$.
+* Built intra-day running totals of customer spending using `ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`.
 
 ---
 
-### Phase 3: Outlier Spend & Geographic Travel Anomalies (`03_fraud_risk_scoring_rules.sql`)
-* **Objective:** Identify behavioral spend deviations and physically impossible travel hops.
-* **Key Operations:**
-  - **Spend Outliers:** Calculated a dynamic baseline using a trailing window frame:
-    $$\text{Trailing 10-Txn Average} = \text{AVG}(amount) \text{ OVER (ROWS BETWEEN 10 PRECEDING AND 1 PRECEDING)}$$
-    Flagged spend surges exceeding $3\times$ historical baseline ($\ge \$100$).
-  - **Impossible Travel:** Flagged physical state hops (`prev_merchant_state != merchant_state`) occurring within $< 60$ minutes, strictly excluding online transactions (`'None'`).
+### Step 3: Spending Outliers & Impossible Travel (`03_fraud_risk_scoring_rules.sql`)
+* **Spend Outlier:** Calculated each customer's trailing 10-transaction average spend (`ROWS BETWEEN 10 PRECEDING AND 1 PRECEDING`) to flag purchases exceeding $3\times$ their typical baseline ($\ge \$100$).
+* **Impossible Travel:** Flagged consecutive in-person transactions across different US states within $< 60$ minutes.
 
 ---
 
-### Phase 4: Consolidating Multi-Factor Fraud Risk Mart (`04_fraud_risk_mart.sql`)
-* **Objective:** Combine individual anomaly flags into a centralized transaction-level **Fraud Risk Score (0–100 points)** and categorize exposure into actionable tiers.
-* **Scoring Weights:**
-  - **Impossible Travel:** $40\text{ pts}$
-  - **Spend Outlier:** $35\text{ pts}$
-  - **Rapid Velocity:** $25\text{ pts}$
-* **Risk Categorization:**
-  - **HIGH:** $\ge 60\text{ pts}$ (Multiple severe anomalies)
-  - **MEDIUM:** $25\text{--}59\text{ pts}$ (Single anomaly threshold breached)
-  - **LOW:** $< 25\text{ pts}$ (Normal activity)
+### Step 4: Multi-Factor Risk Scoring Mart (`04_fraud_risk_mart.sql`)
+Combined all individual rules into a centralized view with a **Risk Score (0–100 points)**:
+* Impossible Travel: **40 pts**
+* Spend Outlier: **35 pts**
+* Velocity Burst: **25 pts**
 
-#### Results & Risk Tier Validation (`v_fact_fraud_monitoring`):
+Categories assigned:
+* **HIGH:** $\ge 60\text{ pts}$
+* **MEDIUM:** $25\text{--}59\text{ pts}$
+* **LOW:** $< 25\text{ pts}$
+
+#### Results (`v_fact_fraud_monitoring`):
 ```sql
 SELECT 
   risk_category,
@@ -94,19 +78,18 @@ ORDER BY avg_risk_score DESC;
 | **MEDIUM** | 1,520,041 | 7,193 | **0.473%** | 35.2 | $324,972,037.24 |
 | **LOW** | 22,845,983 | 22,266 | **0.097%** | 0.0 | $733,327,232.88 |
 
-> **Key Analytical Takeaway:** The scoring model demonstrated strong monotonic risk separation. The **HIGH** category yielded a **1.427% fraud rate**—nearly **$15\times$ higher** than the baseline rate (**0.097%**)—while isolating only **0.08%** of the entire 24.3M transaction volume for high-priority operational review.
+**Takeaway:** The **HIGH** category has a fraud rate of **1.427%** (nearly $15\times$ higher than the baseline rate of 0.097%), while filtering down the review pool to only **20.8k out of 24.3M transactions** ($<0.1\%$).
 
 ---
 
-### Phase 5: Customer-Level Profiling & Behavioral Segmentation (`05_customer_risk_profile.sql`)
-* **Objective:** Aggregate transaction-level signals to create a 360-degree behavioral risk profile on the customer dimension (`user_id`).
-* **Segmentation Logic:**
-  - **CONFIRMED_VICTIM:** Users with $\ge 1$ confirmed fraud transaction.
-  - **HIGH_SUSPICION:** Users with $\ge 3$ HIGH-risk transactions but no confirmed fraud filed yet.
-  - **ELEVATED_ACTIVITY:** Users with $\ge 10$ MEDIUM-risk transactions.
-  - **STANDARD:** Users exhibiting regular spending patterns.
+### Step 5: Customer Risk Profiling & Segmentation (`05_customer_risk_profile.sql`)
+Aggregated transaction behavior to create a customer-level dimension table (`user_id`):
+* **CONFIRMED_VICTIM:** Accounts with at least 1 confirmed fraud transaction.
+* **HIGH_SUSPICION:** Accounts with $\ge 3$ HIGH-risk transactions.
+* **ELEVATED_ACTIVITY:** Accounts with $\ge 10$ MEDIUM-risk transactions.
+* **STANDARD:** Accounts with regular spending patterns.
 
-#### Results & Customer Segmentation Breakdown (`v_dim_user_risk_profile`):
+#### Results (`v_dim_user_risk_profile`):
 ```sql
 SELECT 
   customer_risk_segment,
@@ -119,18 +102,18 @@ GROUP BY customer_risk_segment
 ORDER BY total_frauds DESC;
 ```
 
-| Customer Risk Segment | Total Users | Total Transactions | Total Confirmed Frauds | Total Direct Losses (USD) |
+| Customer Risk Segment | Total Users | Total Transactions | Total Confirmed Frauds | Total Fraud Losses (USD) |
 | :--- | :--- | :--- | :--- | :--- |
 | **CONFIRMED_VICTIM** | 1,343 | 22,127,450 | 29,757 | **$3,231,338.63** |
 | **HIGH_SUSPICION** | 181 | 1,877,732 | 0 | $0.00 |
 | **ELEVATED_ACTIVITY** | 199 | 298,331 | 0 | $0.00 |
 | **STANDARD** | 277 | 83,367 | 0 | $0.00 |
 
-> **Key Analytical Takeaway:** All **$3.23M** in confirmed fraud losses were concentrated across 1,343 accounts. Crucially, the model identified a cohort of **181 HIGH_SUSPICION customers** displaying severe behavioral and travel anomalies, serving as a high-value candidate pool for preventive security measures.
+**Takeaway:** Confirmed fraud losses totaled **$3.23M** across 1,343 customers. The model also identified **181 high-suspicion customers** exhibiting repeated anomalies before any fraud report was filed, highlighting an opportunity for proactive alerts.
 
 ---
 
-## Repository Structure
+## Project Structure
 
 ```text
 banking-fraud-risk-analytics-sql/
@@ -148,12 +131,8 @@ banking-fraud-risk-analytics-sql/
 
 ---
 
-## Technical Stack & SQL Patterns Summary
-* **Platform:** Google BigQuery (Standard SQL) & Google Cloud Storage
-* **Window Specifications:**
-  - `ROWS BETWEEN 10 PRECEDING AND 1 PRECEDING` for leak-free rolling baselines.
-  - `ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW` for intra-day running totals.
-  - `LAG() OVER (PARTITION BY user_id, card_id ORDER BY transaction_datetime)` for sequential state-space tracking.
-* **Data Typing & Precision:**
-  - `CAST(... AS NUMERIC)` to enforce clean monetary formatting and suppress exponential notation.
-  - `DATETIME_DIFF(..., MINUTE)` for precise inter-event temporal analytics.
+## Tech Stack
+* **Cloud Data Warehouse:** Google BigQuery
+* **Storage:** Google Cloud Storage (GCS)
+* **SQL Techniques:** CTEs, Window Frames (`ROWS BETWEEN`), `LAG()`, `DATETIME_DIFF()`, View Materialization
+* **BI Integration:** Ready for Star Schema connection in Power BI
